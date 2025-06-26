@@ -20,12 +20,24 @@ import {
 } from "lucide-react";
 import { StudentJobBoard } from "@/components/student/StudentJobBoard";
 import { StudentMessages } from "@/components/student/StudentMessages";
+import { getStudentSkills, getActiveJobs, supabase } from "@/integrations/supabase/client";
+import { jaccard } from "@/lib/recommend";
 // import { /*…*/ BookOpen } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState("overview");
     // const [activeTab, setActiveTab] = useState("overview");
     // ── Mentorship form state ──
+    const [recommendedJobs, setRecommendedJobs] = useState<
+      ({
+         id: string;
+         title: string;
+         company: string;
+         location: string;
+         type: string;
+       } & { match: number })[]
+    >([]);
+    const [loadingRecs, setLoadingRecs] = useState(true);
     const [studentName, setStudentName] = useState("");
     const [alumniName, setAlumniName] = useState("");
     const [topic, setTopic] = useState("");
@@ -64,35 +76,63 @@ export const StudentDashboard: React.FC = () => {
     };
 
     // Mock data for demonstration
-    const recommendedJobs = [
-        {
-            id: 1,
-            title: "Frontend Developer",
-            company: "TechCorp Inc.",
-            location: "San Francisco, CA",
-            type: "Full-time",
-            match: 95,
-            posted: "2 days ago",
-        },
-        {
-            id: 2,
-            title: "UI/UX Designer",
-            company: "Design Studio",
-            location: "New York, NY",
-            type: "Remote",
-            match: 88,
-            posted: "1 week ago",
-        },
-        {
-            id: 3,
-            title: "Software Engineer",
-            company: "StartupXYZ",
-            location: "Austin, TX",
-            type: "Hybrid",
-            match: 82,
-            posted: "3 days ago",
-        },
-    ];
+    // const recommendedJobs = [
+    //     {
+    //         id: 1,
+    //         title: "Frontend Developer",
+    //         company: "TechCorp Inc.",
+    //         location: "San Francisco, CA",
+    //         type: "Full-time",
+    //         match: 95,
+    //         posted: "2 days ago",
+    //     },
+    //     {
+    //         id: 2,
+    //         title: "UI/UX Designer",
+    //         company: "Design Studio",
+    //         location: "New York, NY",
+    //         type: "Remote",
+    //         match: 88,
+    //         posted: "1 week ago",
+    //     },
+    //     {
+    //         id: 3,
+    //         title: "Software Engineer",
+    //         company: "StartupXYZ",
+    //         location: "Austin, TX",
+    //         type: "Hybrid",
+    //         match: 82,
+    //         posted: "3 days ago",
+    //     },
+    // ];
+        // ── Fetch real recommendations ──
+    React.useEffect(() => {
+      async function loadRecs() {
+        setLoadingRecs(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const skills = await getStudentSkills(user.id);
+        const jobs = await getActiveJobs();
+
+        const scored = jobs
+          .map((job) => ({
+            id: job.id,
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            // map salary_range → type so your state shape stays the same:
+            type: job.salary_range ?? "—",
+            match: Math.round(jaccard(skills, job.requirements || []) * 100),
+            // (optional) posted: dayjs(job.posted_at).fromNow()
+          }))
+          .sort((a, b) => b.match - a.match);
+
+        setRecommendedJobs(scored);
+        setLoadingRecs(false);
+      }
+      loadRecs();
+    }, []);
 
     const activeAlumni = [
         {
@@ -318,7 +358,12 @@ export const StudentDashboard: React.FC = () => {
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    {recommendedJobs.map((job) => (
+                                    {/* {recommendedJobs.map((job) => ( */}
+                                    {loadingRecs
+                                      ? <p>Loading recommendations…</p>
+                                        : recommendedJobs.length === 0
+                                        ? <p>No recommendations found.</p>
+                                        : recommendedJobs.map((job) => (
                                         <div
                                             key={job.id}
                                             className="p-4 rounded-lg border border-border/40 hover:border-blue-accent/40 transition-colors hover-scale"
@@ -345,9 +390,9 @@ export const StudentDashboard: React.FC = () => {
                                             <div className="flex justify-between items-center mt-3">
                                                 <div className="flex items-center space-x-2">
                                                     <Badge variant="outline">{job.type}</Badge>
-                                                    <span className="text-xs text-foreground/50">
+                                                    {/* <span className="text-xs text-foreground/50">
                                                         {job.posted}
-                                                    </span>
+                                                    </span> */}
                                                 </div>
                                                 <Button
                                                     size="sm"
