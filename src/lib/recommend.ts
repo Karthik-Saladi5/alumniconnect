@@ -1,9 +1,13 @@
 // src/lib/recommend.ts
-export function jaccard(a: string[], b: string[]): number {
-  const setA = new Set(a.map((s) => s.toLowerCase()));
-  const setB = new Set(b.map((s) => s.toLowerCase()));
-  const intersection = new Set([...setA].filter((x) => setB.has(x)));
-  const union = new Set([...setA, ...setB]);
-
-  return union.size === 0 ? 0 : intersection.size / union.size;
+export function coverageMatch(
+  studentSkills: string[],
+  jobReqs: string[]
+): number {
+  if (jobReqs.length === 0) return 0;
+  const studentSet = new Set(studentSkills.map((s) => s.toLowerCase()));
+  const matches = jobReqs.reduce(
+    (count, req) => (studentSet.has(req.toLowerCase()) ? count + 1 : count),
+    0
+  );
+  return matches / jobReqs.length;
 }

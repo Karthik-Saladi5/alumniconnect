@@ -21,7 +21,7 @@ import {
 import { StudentJobBoard } from "@/components/student/StudentJobBoard";
 import { StudentMessages } from "@/components/student/StudentMessages";
 import { getStudentSkills, getActiveJobs, supabase } from "@/integrations/supabase/client";
-import { jaccard } from "@/lib/recommend";
+import { coverageMatch } from "@/lib/recommend";
 // import { /*…*/ BookOpen } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {
@@ -123,7 +123,10 @@ export const StudentDashboard: React.FC = () => {
             location: job.location,
             // map salary_range → type so your state shape stays the same:
             type: job.salary_range ?? "—",
-            match: Math.round(jaccard(skills, job.requirements || []) * 100),
+
+            match: Math.round(
+              coverageMatch(skills, job.requirements || []) * 100
+            ),
             // (optional) posted: dayjs(job.posted_at).fromNow()
           }))
           .sort((a, b) => b.match - a.match);
